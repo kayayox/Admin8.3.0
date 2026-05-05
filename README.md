@@ -1,5 +1,3 @@
-markdown
-
 # Admin8.3.0 – Motor NLP en C++
 
 **Autor:** Soubhi Khayat Najjar

@@ -1,5 +1,5 @@
 /**==============================================================================
-    Admin8.2.1 - Dialogue.hpp
+    Admin8.2.4 - Dialogue.hpp
     Proposito: Estructuras para representar un diálogo (premisa, hipótesis, patrón)
                e historial de diálogos. Funciones para generar hipótesis (versión
                avanzada con contexto semántico) y calcular creatividad.

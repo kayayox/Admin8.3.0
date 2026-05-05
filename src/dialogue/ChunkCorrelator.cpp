@@ -1,3 +1,11 @@
+/**==============================================================================
+    Admin8.3.0 - ChunkCorrelator.cpp
+    Propósito: Implementación del correlador de chunks, incluyendo aprendizaje
+               con contexto previo y consultas para predicción.
+    Autor: Soubhi Khayat Najjar
+    Año: 2026
+==============================================================================*/
+
 #include "ChunkCorrelator.hpp"
 #include "../common/types.hpp"
 

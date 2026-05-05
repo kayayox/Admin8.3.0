@@ -1,3 +1,10 @@
+/**==============================================================================
+    Admin8.3.0 - ResponseTemplates.cpp
+    Proposito: Implementación de template basicos y estructura para futuras asifgnaciones.
+    Autor: Soubhi Khayat Najjar
+    Año: 2026
+==============================================================================*/
+
 #include "ResponseTemplates.hpp"
 #include <algorithm>
 #include <regex>

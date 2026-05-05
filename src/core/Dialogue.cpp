@@ -1,5 +1,5 @@
 /**==============================================================================
-    Admin8.2.1 - Dialogue.cpp
+    Admin8.2.4 - Dialogue.cpp
     Proposito: Implementación de historial de diálogos y generación de hipótesis
                avanzada usando reglas de inferencia y correladores contextuales.
     Autor: Soubhi Khayat Najjar

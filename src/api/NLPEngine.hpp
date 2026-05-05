@@ -1,6 +1,6 @@
 /**==============================================================================
-    Admin8.2.1 - NLPEngine.hpp
-    Proposito: Fachada principal del motor NLP para aplicaciones interactivas.
+    Admin8.3.0 - NLPEngine.hpp
+    Propósito: Fachada principal del motor NLP para aplicaciones interactivas.
     Autor: Soubhi Khayat Najjar
     Año: 2026
 ==============================================================================*/
@@ -12,23 +12,31 @@
 #include <vector>
 #include <memory>
 
+// ============================================================================
 // Estructuras de datos públicas
+// ============================================================================
+
 struct WordInfo {
     std::string word;
-    std::string tipo;           // "Sustantivo", "Verbo", etc.
-    float confianza;            // 0..1
+    std::string tipo;                     // "Sustantivo", "Verbo", etc.
+    float confianza = 0.0f;              // 0..1
     std::string significado;
-    std::string cantidad;       // "Singular", "Plural", ""
-    std::string tiempo;         // "Pasado", "Presente", "Futuro", ""
-    std::string genero;         // "Masculino", "Femenino", "Neutro", ""
-    std::string persona;        // "Primera", "Segunda", "Tercera", ""
-    std::string grado;          // "Positivo", "Superlativo", ...
+    std::string cantidad;                // "Singular", "Plural", ""
+    std::string tiempo;                  // "Pasado", "Presente", "Futuro", ""
+    std::string genero;                  // "Masculino", "Femenino", "Neutro", ""
+    std::string persona;                 // "Primera", "Segunda", "Tercera", ""
+    std::string grado;                   // "Positivo", "Superlativo", ...
+    std::vector<std::pair<std::string, double>> relacionadas;
 };
 
 struct Prediction {
     std::string word;
-    double probability;
+    double probability = 0.0;
 };
+
+// ============================================================================
+// Clase fachada del motor NLP
+// ============================================================================
 
 class NLPEngine {
 public:
@@ -36,7 +44,7 @@ public:
     ~NLPEngine();
 
     // Inicialización: rutas de las tres bases de datos.
-    // La base temporal es opcional; si no se provee, se usa una en memoria (":memory:").
+    // La base temporal es opcional; si no se provee, se usa ":memory:".
     bool initialize(const std::string& semanticDbPath,
                     const std::string& patternDbPath,
                     const std::string& temporalDbPath = "");
@@ -51,13 +59,13 @@ public:
     void learnText(const std::string& text);
 
     // Procesa una oración completa: tokeniza, clasifica, guarda en BD semántica,
-    // aprende patrones contextuales, y actualiza el estado interno de conversación.
+    // aprende patrones contextuales y actualiza el estado interno de conversación.
     // Devuelve información detallada de cada palabra.
     std::vector<WordInfo> processSentence(const std::string& sentence);
 
     // Predicción de la(s) siguiente(s) palabra(s):
-    // - Si se proporciona previousWords, se usa ese contexto.
-    // - Si no, se usa el contexto interno (últimas palabras procesadas en la conversación).
+    // - Si se proporciona currentWord, se usa ese contexto.
+    // - Si no, se usa el contexto interno (últimas palabras procesadas).
     std::vector<Prediction> predictNext(const std::string& currentWord);
 
     // Genera una respuesta (hipótesis) a partir de una premisa dada.

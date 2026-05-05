@@ -38,6 +38,7 @@ void Classifier::updateMorphAttributes(Word& w, TipoPalabra tag) {
         default:
             break;
     }
+    w.generateStructuredMeaning();
 }
 
 void Classifier::classifySentence(std::vector<Word>& words) {

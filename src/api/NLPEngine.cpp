@@ -1,44 +1,59 @@
 /**==============================================================================
-    Admin8.2.1 - NLPEngine.cpp
-    Proposito: Implementación de la fachada principal del motor NLP.
+    Admin8.3.0 - NLPEngine.cpp
+    Propósito: Implementación de la fachada principal del motor NLP.
     Autor: Soubhi Khayat Najjar
     Año: 2026
 ==============================================================================*/
 
 #include "NLPEngine.hpp"
+
+// Core
 #include "../core/Word.hpp"
 #include "../core/Sentence.hpp"
 #include "../core/Pattern.hpp"
 #include "../core/Command.hpp"
+
+// Database
 #include "../db/DatabaseManager.hpp"
 #include "../db/WordRepository.hpp"
 #include "../db/SentenceRepository.hpp"
 #include "../db/PatternRepository.hpp"
 #include "../db/DialogueRepository.hpp"
 #include "../db/TemplateRepository.hpp"
+
+// NLP
 #include "../nlp/Tokenizer.hpp"
 #include "../nlp/Morphology.hpp"
 #include "../nlp/TagStats.hpp"
 #include "../nlp/Classifier.hpp"
 #include "../nlp/Refiner.hpp"
+
+// Dialogue
 #include "../dialogue/PatternCorrelator.hpp"
 #include "../dialogue/ContextualCorrelator.hpp"
 #include "../dialogue/ChunkCorrelator.hpp"
+
+// Utils
 #include "../utils/StringConversions.hpp"
 #include "../utils/LearningHelpers.hpp"
 #include "../utils/ResponseTemplates.hpp"
 #include "../utils/SlotFiller.hpp"
 
+// STL
 #include <deque>
 #include <sstream>
 #include <iostream>
 #include <algorithm>
 
+// ============================================================================
+// Implementación interna (Pimpl)
+// ============================================================================
+
 class NLPEngine::Impl {
 public:
     bool initialized = false;
     bool debugMode = false;
-    std::deque<std::string> contextWords;  // hasta 15 palabras
+    std::deque<std::string> contextWords;        // hasta 15 palabras
     std::string lastProcessedSentenceText;
     Sentence lastProcessedSentence;
 
@@ -50,14 +65,16 @@ public:
     std::unique_ptr<SlotFiller> slotFiller;
     Classifier classifier;
 
-    // Contexto de diálogo para la generación de hipótesis
-    DialogueContext dialogueContext;
+    DialogueContext dialogueContext;            // contexto de diálogo para hipótesis
 
-    // Rutas
+    // Rutas de bases de datos
     std::string semanticDbPath;
     std::string patternDbPath;
     std::string temporalDbPath;
 
+    // ------------------------------------------------------------------------
+    // Inicialización
+    // ------------------------------------------------------------------------
     bool initialize(const std::string& semPath, const std::string& patPath, const std::string& tempPath) {
         semanticDbPath = semPath;
         patternDbPath = patPath;
@@ -88,7 +105,6 @@ public:
         // 3. Crear tablas si no existen
         WordRepository::initializeTables();
         SentenceRepository::initializeTables();
-        //PatternRepository::initializeTables();
         TagStats::initializeTables();
         DialogueRepository::initializeTables();
         TemplateRepository::initializeTables();
@@ -99,8 +115,8 @@ public:
 
         // 5. Inicializar correladores
         try {
-            patternCorrW = std::make_unique<PatternCorrelator>(patternDbPath,"");
-            patternCorrC = std::make_unique<PatternCorrelator>(patternDbPath,"_chunk");
+            patternCorrW = std::make_unique<PatternCorrelator>(patternDbPath, "");
+            patternCorrC = std::make_unique<PatternCorrelator>(patternDbPath, "_chunk");
             ctxCorr = std::make_unique<ContextualCorrelator>(patternDbPath);
             chcCorr = std::make_unique<ChunkCorrelator>(patternDbPath);
         } catch (const std::exception& e) {
@@ -108,10 +124,10 @@ public:
             return false;
         }
         PatternRepository::initializeTables();
+
         // 6. Inicializar plantillas y slot filler
         templateMatcher = std::make_unique<TemplateMatcher>();
-        templateMatcher->loadDefaultTemplates();   // o cargar desde repositorio si se prefiere
-
+        templateMatcher->loadDefaultTemplates();
         slotFiller = std::make_unique<SlotFiller>(*ctxCorr);
 
         // 7. Configurar el contexto de diálogo para generateHypothesis
@@ -139,11 +155,11 @@ public:
         }
     }
 
-    void setDebugMode(bool enable) {
-        debugMode = enable;
-    }
+    void setDebugMode(bool enable) { debugMode = enable; }
 
-    // Tokeniza y clasifica una oración, devuelve los WordInfo y además actualiza el contexto interno
+    // ------------------------------------------------------------------------
+    // Procesamiento de oraciones
+    // ------------------------------------------------------------------------
     std::vector<WordInfo> processSentence(const std::string& sentence) {
         if (!initialized || sentence.empty()) return {};
 
@@ -167,22 +183,26 @@ public:
         // 3. Clasificar todas las palabras
         classifier.classifySentence(words);
 
-        // 4. Aprender la oración en los correladores (patrones contextuales)
-        ::learnTextWithContext(*ctxCorr, *patternCorrW, sentence);  // helper que llama learnWithPreviousTwo y learnNextWordDirect
+        // 4. Aprender la oración en los correladores
+        learnTextWithContext(*ctxCorr, *patternCorrW, sentence);
         chcCorr->learnFromClassifiedSentence(words);
         std::vector<std::string> chunks = Chunker::chunk(words);
         chcCorr->learnNextChunkDirect(chunks);
 
         // 5. Construir Sentence y guardar en BD semántica
         Sentence sent(words);
-        std::vector<TipoPalabra> t=sent.getTypeSequence();
-        Pattern p=patternFromSequence(t);
+        Pattern p = patternFromSequence(sent.getTypeSequence());
         PatternRepository::save(p);
         SentenceRepository::save(sent);
         lastProcessedSentence = sent;
         lastProcessedSentenceText = sentence;
 
-        // 6. Actualizar contexto interno con las palabras de la oración (hasta 15)
+        for (auto& w : words) {
+            w.learnRelationsFromCorrelator(*dialogueContext.patternCorr);
+            WordRepository::save(w);
+        }
+
+        // 6. Actualizar contexto interno (hasta 15 palabras)
         for (const auto& w : words) {
             contextWords.push_back(w.getPalabra());
             if (contextWords.size() > 15) contextWords.pop_front();
@@ -190,12 +210,15 @@ public:
 
         // 7. Convertir a WordInfo para retorno
         std::vector<WordInfo> result;
-        for (const auto& w : words) {
+        for (auto& w : words) {
             result.push_back(wordToInfo(w));
         }
         return result;
     }
 
+    // ------------------------------------------------------------------------
+    // Predicción de siguiente palabra
+    // ------------------------------------------------------------------------
     std::vector<Prediction> predictNext(const std::string& currentWords) {
         if (!initialized) return {};
 
@@ -206,37 +229,35 @@ public:
         while (ss >> w) {
             wordsCorrelator.push_back(w);
             Word wo(w);
-            WordRepository::load(w,wo);
+            WordRepository::load(w, wo);
             words.push_back(wo);
         }
+
         std::vector<std::string> chunks = Chunker::chunk(words);
         std::vector<std::pair<WordPattern, double>> outcomes;
         bool hasPrediction = false;
 
         if (chunks.size() >= 3) {
-            // Hay al menos dos chunks anteriores
             std::string current = chunks.back();
-            std::string prev1 = chunks[chunks.size()-2];
-            std::string prev2 = chunks[chunks.size()-3];
+            std::string prev1 = chunks[chunks.size() - 2];
+            std::string prev2 = chunks[chunks.size() - 3];
             hasPrediction = chcCorr->queryNextWithTwoPrev(current, prev1, prev2, outcomes);
         } else if (chunks.size() == 2) {
-            // Solo un chunk anterior
             std::string current = chunks.back();
             std::string prev = chunks[0];
             hasPrediction = chcCorr->queryNextWithOnePrev(current, prev, outcomes);
         } else if (chunks.size() == 1) {
-            // Sin contexto
             std::string current = chunks.back();
             hasPrediction = chcCorr->queryNext(current, {"__NO_CONTEXT__"}, outcomes);
         }
 
-        // Si no hay predicción de chunks, intentar con palabras (fallback)
+        // Fallback a contexto de palabras
         if (!hasPrediction || outcomes.empty()) {
             std::string currWord;
             std::string prev;
             if (wordsCorrelator.size() > 1) {
                 currWord = wordsCorrelator.back();
-                prev = wordsCorrelator[wordsCorrelator.size()-2];
+                prev = wordsCorrelator[wordsCorrelator.size() - 2];
             } else if (wordsCorrelator.size() == 1) {
                 currWord = wordsCorrelator.back();
                 prev = "__NO_CONTEXT__";
@@ -259,10 +280,12 @@ public:
         return preds;
     }
 
+    // ------------------------------------------------------------------------
+    // Generación de respuesta (hipótesis)
+    // ------------------------------------------------------------------------
     std::string generateResponse(const std::string& premise) {
         if (!initialized || premise.empty()) return "";
 
-        // 1. Procesar premisa igual que antes
         auto tokens = tokenize(premise);
         std::vector<Word> words;
         for (const auto& tok : tokens) {
@@ -277,14 +300,16 @@ public:
         }
         classifier.classifySentence(words);
         Sentence premiseSent(words);
-        Pattern patern;
-        patern.sequence = premiseSent.getTypeSequence();
-        patern.type = classifySentencePattern(patern.sequence);
-        Sentence h = generateHypothesis(premiseSent, dialogueContext, &patern, "");
-        std::string res=h.toString();
-        return res;
+        Pattern p;
+        p.sequence = premiseSent.getTypeSequence();
+        p.type = classifySentencePattern(p.sequence);
+        Sentence hypothesis = generateHypothesis(premiseSent, dialogueContext, &p, "");
+        return hypothesis.toString();
     }
 
+    // ------------------------------------------------------------------------
+    // Corrección y reprocesamiento
+    // ------------------------------------------------------------------------
     void correctWord(const std::string& word, const std::string& correctType) {
         if (!initialized) return;
         Word w(word);
@@ -305,7 +330,6 @@ public:
             w.setConfianza(0.95f);
             w.setSignificado("Corregido por usuario a " + correctType);
             WordRepository::save(w);
-            // Las estadísticas de transición se actualizarán cuando se reprocese la última oración
         } else if (debugMode) {
             std::cerr << "[WARN] Tipo incorrecto para corrección: " << correctType << std::endl;
         }
@@ -313,8 +337,6 @@ public:
 
     void reprocessLastSentence() {
         if (!initialized || lastProcessedSentenceText.empty()) return;
-        // Forzar reprocesamiento: la última oración se vuelve a clasificar.
-        // Esto actualizará las estadísticas considerando las nuevas etiquetas.
         processSentence(lastProcessedSentenceText);
     }
 
@@ -343,13 +365,14 @@ private:
         info.genero = generoToString(w.getGenero());
         info.persona = personaToString(w.getPersona());
         info.grado = gradoToString(w.getGrado());
+        info.relacionadas = w.getRelated();
         return info;
     }
 };
 
-// ------------------------------------------------
+// ============================================================================
 // Implementación de la fachada pública
-// ------------------------------------------------
+// ============================================================================
 
 NLPEngine::NLPEngine() : pImpl(std::make_unique<Impl>()) {}
 NLPEngine::~NLPEngine() { shutdown(); }
@@ -361,13 +384,10 @@ bool NLPEngine::initialize(const std::string& semanticDbPath,
 }
 
 void NLPEngine::shutdown() { pImpl->shutdown(); }
-
 void NLPEngine::setDebugMode(bool enable) { pImpl->setDebugMode(enable); }
-
 void NLPEngine::learnText(const std::string& text) {
     if (!pImpl->initialized) return;
-    // Aprende usando los correladores (no actualiza contexto interno)
-    ::learnTextWithContext(*pImpl->ctxCorr, *pImpl->patternCorrW, text);
+    learnTextWithContext(*pImpl->ctxCorr, *pImpl->patternCorrW, text);
 }
 
 std::vector<WordInfo> NLPEngine::processSentence(const std::string& sentence) {

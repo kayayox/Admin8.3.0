@@ -1,21 +1,25 @@
 /**==============================================================================
     Admin8.2.1 - main.cpp (ejemplo de uso de la API)
-    Proposito: Demostración interactiva de todas las capacidades del motor NLP.
+    Propósito: Demostración interactiva de todas las capacidades del motor NLP.
     Autor: Soubhi Khayat Najjar
     Año: 2026
 ==============================================================================*/
 
 #include "src/api/NLPEngine.hpp"
-#include "src/nlp/Tokenizer.hpp" // para splitIntoSentences
-#include "src/core/Command.hpp" // para detectSubjects, detectObjects, detectCommandFromPhrase
-#include "src/utils/StringConversions.hpp" // para tipoToString (si se necesita, aunque NLPEngine ya traduce)
+#include "src/nlp/Tokenizer.hpp"          // splitIntoSentences
+#include "src/core/Command.hpp"            // detectCommandFromPhrase
+#include "src/utils/StringConversions.hpp" // tipoToString (opcional)
+
 #include <iostream>
 #include <fstream>
 #include <sstream>
 #include <limits>
 #include <cctype>
 
-// ==================== Funciones auxiliares ====================
+// ============================================================================
+// Funciones auxiliares
+// ============================================================================
+
 void printWordInfo(const WordInfo& info) {
     std::cout << "Palabra: " << info.word << "\n"
               << "  Tipo: " << info.tipo << " (confianza: " << info.confianza << ")\n"
@@ -23,6 +27,9 @@ void printWordInfo(const WordInfo& info) {
               << "  Cantidad: " << info.cantidad << ", Tiempo: " << info.tiempo
               << ", Género: " << info.genero << ", Persona: " << info.persona
               << ", Grado: " << info.grado << "\n";
+    for (const auto& rel : info.relacionadas) {
+        std::cout << "  " << rel.first << " = " << rel.second << std::endl;
+    }
 }
 
 void printPredictions(const std::vector<Prediction>& preds) {
@@ -32,7 +39,7 @@ void printPredictions(const std::vector<Prediction>& preds) {
     }
     std::cout << "  Predicciones:\n";
     for (size_t i = 0; i < preds.size(); ++i) {
-        std::cout << "    " << i+1 << ". '" << preds[i].word
+        std::cout << "    " << i + 1 << ". '" << preds[i].word
                   << "' (probabilidad: " << preds[i].probability << ")\n";
     }
 }
@@ -76,7 +83,10 @@ bool learnFromFile(NLPEngine& engine, const std::string& filename) {
     return true;
 }
 
-// ==================== Menú principal ====================
+// ============================================================================
+// Menú principal
+// ============================================================================
+
 void mostrarMenu() {
     std::cout << "\n=== MENÚ PRINCIPAL ===\n"
               << "1. Aprender de archivo\n"
@@ -96,13 +106,12 @@ int main() {
     NLPEngine engine;
     std::string semanticDb = "nlp_semantic.db";
     std::string patternDb = "nlp_patterns.db";
-    std::string temporalDb = ":memory:";   // base temporal en memoria
+    std::string temporalDb = ":memory:";
+
     if (!engine.initialize(semanticDb, patternDb, temporalDb)) {
         std::cerr << "Error fatal: No se pudo inicializar el motor NLP.\n";
         return 1;
     }
-    // Opcional: silenciar mensajes internos (debug desactivado)
-    // engine.setDebugMode(false);
     std::cout << "Motor NLP inicializado correctamente.\n";
 
     int opcion;
@@ -116,10 +125,8 @@ int main() {
                 std::cout << "Nombre del archivo (ej: corpus.txt): ";
                 std::string archivo;
                 std::getline(std::cin, archivo);
-                if (!archivo.empty())
-                    learnFromFile(engine, archivo);
-                else
-                    std::cout << "No se especificó archivo.\n";
+                if (!archivo.empty()) learnFromFile(engine, archivo);
+                else std::cout << "No se especificó archivo.\n";
                 break;
             }
             case 2: {
@@ -146,8 +153,7 @@ int main() {
                 if (!oracion.empty()) {
                     auto infos = engine.processSentence(oracion);
                     std::cout << "Clasificación:\n";
-                    for (const auto& info : infos)
-                        printWordInfo(info);
+                    for (const auto& info : infos) printWordInfo(info);
                 }
                 break;
             }
@@ -180,34 +186,36 @@ int main() {
                 break;
             }
             case 7: {
-                // Modo predicción interactiva
                 std::cout << "--- MODO PREDICCIÓN ---\n";
                 std::cout << "Frase inicial (mínimo 2 palabras): ";
                 std::string input;
                 std::getline(std::cin, input);
                 std::string currentPhrase = input;
                 const int MAX_ITER = 15;
+
                 for (int iter = 1; iter <= MAX_ITER; ++iter) {
                     std::cout << "\n=== Iteración " << iter << " ===\n";
-                    // Usamos predictNext con una sola palabra anterior
                     auto preds = engine.predictNext(currentPhrase);
                     printPredictions(preds);
+
                     if (preds.empty()) {
                         std::cout << "No hay predicciones. Fin del bucle.\n";
                         break;
                     }
+
                     std::string predicted = preds[0].word;
                     double bestProb = preds[0].probability;
+
                     if (bestProb < 0.5 && preds.size() > 1) {
                         std::cout << "Confianza baja. Se mostrarán opciones.\n";
                         for (size_t i = 0; i < preds.size() && i < 5; ++i)
-                            std::cout << "   " << i+1 << ": " << preds[i].word << " (" << preds[i].probability << ")\n";
+                            std::cout << "   " << i + 1 << ": " << preds[i].word << " (" << preds[i].probability << ")\n";
                         std::cout << "Elija número (1-" << std::min(5, (int)preds.size()) << ") o 0 para ingresar manual: ";
                         int elec;
                         std::cin >> elec;
                         std::cin.ignore();
                         if (elec >= 1 && elec <= (int)preds.size())
-                            predicted = preds[elec-1].word;
+                            predicted = preds[elec - 1].word;
                         else if (elec == 0) {
                             std::cout << "Palabra correcta: ";
                             std::getline(std::cin, predicted);
@@ -218,22 +226,25 @@ int main() {
                             std::getline(std::cin, predicted);
                         }
                     }
+
                     // Aprender la secuencia correcta
-                    std::string correctedSentence =currentPhrase + " " + predicted;
+                    std::string correctedSentence = currentPhrase + " " + predicted;
                     engine.processSentence(correctedSentence);
                     std::cout << "Aprendida: " << correctedSentence << "\n";
                     currentPhrase += " " + predicted;
-                    // Opcional: preguntar si se desea corregir esta palabra y reprocesar
-                    /*if (askYesNo("¿Corregir la clasificación de esta palabra?")) {
+
+                    // Opcional: corrección de clasificación
+                    if (askYesNo("¿Corregir la clasificación de esta palabra?")) {
                         std::cout << "Nuevo tipo: ";
                         std::string newType;
                         std::getline(std::cin, newType);
                         engine.correctWord(predicted, newType);
-                        engine.reprocessLastSentence(); // actualiza estadísticas
-                        info = engine.getWordInfo(predicted);
+                        engine.reprocessLastSentence();
+
+                        WordInfo info = engine.getWordInfo(predicted);
                         std::cout << "Después de corrección:\n";
                         printWordInfo(info);
-                    }*/
+                    }
                 }
                 std::cout << "\nFrase final generada: " << currentPhrase << "\n";
                 break;

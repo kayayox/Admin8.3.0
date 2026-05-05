@@ -1,3 +1,11 @@
+/**==============================================================================
+    Admin8.3.0 - SlotFiller.hpp
+    Propósito: Asignación de valores a slots de plantillas mediante correlación
+               contextual y predicción de palabras según tipo gramatical esperado.
+    Autor: Soubhi Khayat Najjar
+    Año: 2026
+==============================================================================*/
+
 #ifndef SLOT_FILLER_HPP
 #define SLOT_FILLER_HPP
 

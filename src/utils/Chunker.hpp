@@ -1,3 +1,11 @@
+/**==============================================================================
+    Admin8.3.0 - Chunker.hpp
+    Propósito: Segmentación de secuencias de palabras en chunks (frases nominales,
+               verbales, preposicionales, etc.) para aprendizaje de patrones.
+    Autor: Soubhi Khayat Najjar
+    Año: 2026
+==============================================================================*/
+
 #ifndef CHUNKER_HPP
 #define CHUNKER_HPP
 

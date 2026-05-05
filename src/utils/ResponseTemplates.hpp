@@ -1,3 +1,11 @@
+/**==============================================================================
+    Admin8.3.0 - ResponseTemplates.hpp
+    Propósito: Definición de estructuras para plantillas de respuesta y su
+               emparejamiento (TemplateMatcher) basado en tipo de patrón y keywords.
+    Autor: Soubhi Khayat Najjar
+    Año: 2026
+==============================================================================*/
+
 #ifndef RESPONSE_TEMPLATES_HPP
 #define RESPONSE_TEMPLATES_HPP
 

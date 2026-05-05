@@ -1,3 +1,10 @@
+/**==============================================================================
+    Admin8.3.0 - SlotFiller.cpp
+    Proposito: Implementación de la asignacion de texto en los slots de los template.
+    Autor: Soubhi Khayat Najjar
+    Año: 2026
+==============================================================================*/
+
 #include "SlotFiller.hpp"
 #include "../nlp/TagStats.hpp"
 #include "../db/WordRepository.hpp"

@@ -1,5 +1,5 @@
 /**==============================================================================
-    Admin8.2.1 - Word.hpp
+    Admin8.2.2 - Word.hpp
     Proposito: Entidad de dominio que representa una palabra con sus atributos
                gramaticales y semánticos. Sin métodos de persistencia.
     Autor: Soubhi Khayat Najjar
@@ -12,6 +12,7 @@
 #define ADMIN821_WORD_HPP
 
 #include "../common/types.hpp"
+#include "../dialogue/PatternCorrelator.hpp"
 #include <string>
 #include <vector>
 
@@ -44,8 +45,11 @@ public:
     void setPersona(Persona pers);
     void setConfianza(float conf);
 
-    // Generar significado por defecto basado en tipo y contexto opcional
-    void generateDefaultMeaning(const std::string& contexto = "");
+    // Aprende palabras relacionadas usando un correlador entrenado con pares (palabra, palabra_relacionada)
+    void learnRelationsFromCorrelator(PatternCorrelator& correlator, double minConfidence = 0.3);
+
+    // Genera un significado estructurado basado en los atributos gramaticales actuales
+    void generateStructuredMeaning();
 
     // Relacionadas (solo gestión en memoria; la persistencia la maneja el repositorio)
     void addRelated(const std::string& palabra, double valor);

@@ -1,5 +1,5 @@
 /**==============================================================================
-    Admin8.2.1 - Command.cpp
+    Admin8.2.2 - Command.cpp
     Proposito: Implementación de detección de comandos, sujetos y objetos.
     Autor: Soubhi Khayat Najjar
     Año: 2026

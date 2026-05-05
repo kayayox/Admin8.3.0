@@ -1,5 +1,5 @@
 /**==============================================================================
-    Admin8.2.1 - types.hpp
+    Admin8.3.0 - types.hpp
     Proposito: Definiciones de tipos enumerados compartidos por todo el motor NLP
     Autor: Soubhi Khayat Najjar
     Año: 2026

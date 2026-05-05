@@ -1,3 +1,11 @@
+/**==============================================================================
+    Admin8.3.0 - ChunkCorrelator.hpp
+    Propósito: Correlación de secuencias de chunks (frases) para aprendizaje
+               y predicción de estructuras de mayor nivel.
+    Autor: Soubhi Khayat Najjar
+    Año: 2026
+==============================================================================*/
+
 #ifndef CHUNK_CORRELATOR_HPP
 #define CHUNK_CORRELATOR_HPP
 

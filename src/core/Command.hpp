@@ -1,5 +1,5 @@
 /**==============================================================================
-    Admin8.2.1 - Command.hpp
+    Admin8.2.2 - Command.hpp
     Proposito: Estructura de comando y funciones para detectar comandos,
                sujetos y objetos a partir de una oración.
     Autor: Soubhi Khayat Najjar

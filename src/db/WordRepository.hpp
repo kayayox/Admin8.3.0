@@ -15,7 +15,7 @@
 class WordRepository {
 public:
     // Ruta de la base de datos semántica.
-    // Se debe llamar a setDatabasePath antes de las operaciones (o se puede pasar por parámetro).
+    // Se debe llamar a setDatabasePath antes de las operaciones.
     static void setDatabasePath(const std::string& path);
     static std::string getDatabasePath();
 
@@ -34,7 +34,7 @@ public:
 
 private:
     static std::string dbPath_;
-    static int getOrCreateWordId(const Word& word);  // auxiliar
+    static int getOrCreateWordId(const Word& word);
 };
 
 #endif // ADMIN821_WORD_REPOSITORY_HPP

@@ -1,3 +1,10 @@
+/**==============================================================================
+    Admin8.3.0 - Chunker.cpp
+    Propósito: Implementación del chunker basado en tipos gramaticales.
+    Autor: Soubhi Khayat Najjar
+    Año: 2026
+==============================================================================*/
+
 #include "Chunker.hpp"
 #include "../common/types.hpp"
 #include <sstream>

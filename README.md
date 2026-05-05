@@ -24,6 +24,7 @@ Motor de Procesamiento de Lenguaje Natural (NLP) escrito en C++17, diseñado par
 
 ## 🧱 Arquitectura del proyecto
 
+```
 src/
 ├── api/            # Fachada pública (NLPEngine)
 ├── common/         # Tipos enumerados compartidos (types.hpp)
@@ -32,7 +33,7 @@ src/
 ├── nlp/            # Tokenizador, morfología, clasificador, estadísticas de etiquetas, refinador
 ├── dialogue/       # Correladores de patrones, contextos y chunks
 └── utils/          # Chunker, helpers de aprendizaje, serialización, plantillas, slot filler
-
+```
 
 ### Flujo de procesamiento de una oración
 

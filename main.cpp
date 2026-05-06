@@ -208,9 +208,9 @@ int main() {
 
                     if (bestProb < 0.5 && preds.size() > 1) {
                         std::cout << "Confianza baja. Se mostrarán opciones.\n";
-                        for (size_t i = 0; i < preds.size() && i < 5; ++i)
+                        for (size_t i = 0; i < preds.size() && i < 15; ++i)
                             std::cout << "   " << i + 1 << ": " << preds[i].word << " (" << preds[i].probability << ")\n";
-                        std::cout << "Elija número (1-" << std::min(5, (int)preds.size()) << ") o 0 para ingresar manual: ";
+                        std::cout << "Elija número (1-" << std::min(15, (int)preds.size()) << ") o 0 para ingresar manual: ";
                         int elec;
                         std::cin >> elec;
                         std::cin.ignore();
@@ -232,7 +232,8 @@ int main() {
                     engine.processSentence(correctedSentence);
                     std::cout << "Aprendida: " << correctedSentence << "\n";
                     currentPhrase += " " + predicted;
-
+                    WordInfo info = engine.getWordInfo(predicted);
+                    printWordInfo(info);
                     // Opcional: corrección de clasificación
                     if (askYesNo("¿Corregir la clasificación de esta palabra?")) {
                         std::cout << "Nuevo tipo: ";

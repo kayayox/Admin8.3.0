@@ -193,6 +193,13 @@ Palabra: el
 Palabra: gato
   Tipo: Sustantivo (confianza: 0.95)
   ...
+Apendices:
+Se anexan tres Archivos .txt para entrenamiento y prueba
+  aprende1.txt
+  aprende2.txt
+  aprende3.txt
+Suman 799 fraces
+  ...
 
 🤝 Contribuciones
 

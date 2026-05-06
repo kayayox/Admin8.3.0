@@ -171,7 +171,8 @@ public:
         std::vector<Word> words;
         for (const auto& tok : tokens) {
             if (tok.type == TokenType::WORD) {
-                words.emplace_back(tok.text);
+                Word w(tok.text);
+                words.push_back(w);
             } else {
                 Word w(tok.text);
                 w.setTipo((tok.type == TokenType::DATE) ? TipoPalabra::DATE : TipoPalabra::NUM);

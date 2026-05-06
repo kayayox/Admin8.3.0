@@ -40,11 +40,11 @@ namespace {
 
 // Estructura de premisa analizada
 struct ParsedPremise {
-    std::string subject;
-    std::string verb;
-    std::string object;
+    std::string subject = "";
+    std::string verb = "";
+    std::string object = "";
     std::vector<std::string> keywords;
-    TipoPatron patternType;
+    TipoPatron patternType = TipoPatron::SENTENCIAS;
 };
 
 // Extracción mejorada de sujeto, verbo, objeto

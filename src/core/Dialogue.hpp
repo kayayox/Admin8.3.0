@@ -58,7 +58,7 @@ struct Dialogue {
     Sentence premise;
     Sentence hypothesis;
     Pattern pattern;
-    float creativity;
+    float creativity = 0.0f;
 };
 
 class DialogueHistory {

@@ -19,8 +19,8 @@
 class Word;
 
 struct Block {
-    std::string text;
-    TipoPalabra type;
+    std::string text = "";
+    TipoPalabra type = TipoPalabra::INDEFINIDO;
 };
 
 class Sentence {

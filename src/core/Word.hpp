@@ -56,8 +56,8 @@ public:
     void clearRelated() { relacionadas_.clear(); }
 
 private:
-    std::string palabra_;
-    std::string significado_;
+    std::string palabra_ = "";
+    std::string significado_ = "";
     TipoPalabra tipo_ = TipoPalabra::INDEFINIDO;
     Cantidad cantidad_ = Cantidad::NONE;
     Tiempo tiempo_ = Tiempo::INDETERMINADO;

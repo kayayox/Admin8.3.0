@@ -53,12 +53,16 @@ static TokenType classify_token(const std::string& token) {
 }
 
 static bool is_word_char(unsigned char c) {
-    if (c >= 0x80) return true;
+    if (c == '"' || c == ':' || c == ';' || c == '\\' || c == '(' || c == ')' ||
+        c == '[' || c == ']' || c == '{' || c == '}' || c == '<' || c == '>')
+        return false;
+
+    if (c >= 0x80) return true; // UTF-8 multibyte
     return std::isalnum(c) || c == '\'' || c == '-' || c=='/' || c=='.' || c==',' || c == '?' || c=='!';
 }
 
 static void trim_punctuation(std::string& text) {
-    static const std::string punct = ".,;:!?¡¿";
+    static const std::string punct = ".,;:!?¡¿\"()[]{}<>";
     while (!text.empty() && punct.find(text.back()) != std::string::npos)
         text.pop_back();
     while (!text.empty() && punct.find(text.front()) != std::string::npos)
@@ -128,6 +132,11 @@ std::vector<Token> tokenize(const std::string& input) {
     while (i < input.size()) {
         while (i < input.size() && std::isspace(static_cast<unsigned char>(input[i]))) ++i;
         if (i >= input.size()) break;
+
+        if (!is_word_char(static_cast<unsigned char>(input[i]))) {
+            ++i;
+            continue;
+        }
         size_t start = i;
         while (i < input.size() && is_word_char(static_cast<unsigned char>(input[i]))) ++i;
         std::string token = input.substr(start, i - start);

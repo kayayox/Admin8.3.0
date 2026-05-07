@@ -38,9 +38,16 @@ public:
         const std::vector<std::string>& initialWordContext);
 
     TipoPalabra inferTypeFromSlotName(const std::string& slotName);
+    // Establece el contexto semántico de la premisa actual
+    void setPremiseContext(const std::string& subj, const std::string& verb, const std::string& obj);
+    // Limpia el contexto
+    void clearPremiseContext();
 
 private:
     ContextualCorrelator& ctxCorr;
+    std::string premiseSubject_;
+    std::string premiseVerb_;
+    std::string premiseObject_;
 };
 
 #endif // SLOT_FILLER_HPP

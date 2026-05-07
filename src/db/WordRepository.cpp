@@ -202,7 +202,6 @@ bool WordRepository::load(const std::string& palabra, Word& outWord) {
     sqlite3* db = DatabaseManager::instance().getHandle(dbPath_);
     if (!db) return false;
 
-    // Cargar atributos principales
     const char* sql_main = "SELECT significado, tipo, cantidad, tiempo, genero, grado, persona, confianza FROM palabras WHERE palabra = ?";
     sqlite3_stmt* stmt = nullptr;
     if (!prepareStatement(db, sql_main, &stmt)) return false;
@@ -214,7 +213,9 @@ bool WordRepository::load(const std::string& palabra, Word& outWord) {
     }
 
     outWord.setPalabra(palabra);
-    outWord.setSignificado(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0)));
+    // Manejar NULL en cada columna de texto
+    const char* significado = (const char*)sqlite3_column_text(stmt, 0);
+    outWord.setSignificado(significado ? significado : "");
     outWord.setTipo(static_cast<TipoPalabra>(sqlite3_column_int(stmt, 1)));
     outWord.setCantidad(static_cast<Cantidad>(sqlite3_column_int(stmt, 2)));
     outWord.setTiempo(static_cast<Tiempo>(sqlite3_column_int(stmt, 3)));
@@ -224,26 +225,24 @@ bool WordRepository::load(const std::string& palabra, Word& outWord) {
     outWord.setConfianza(static_cast<float>(sqlite3_column_double(stmt, 7)));
     sqlite3_finalize(stmt);
 
-    // Cargar las relaciones
-    outWord.clearRelated();  // limpiar cualquier relación previa
-
+    // Cargar relaciones
+    outWord.clearRelated();
     int palabraId = getWordId(db, palabra, false);
-    if (palabraId == -1) {
-        // No debería ocurrir porque acabamos de leer la palabra
-        return true; // No hay relaciones
-    }
+    if (palabraId == -1) return true;
 
-    const char* sql_rels =
-        "SELECT p2.palabra, r.valor FROM relaciones r "
-        "JOIN palabras p2 ON r.relacionada_id = p2.id "
-        "WHERE r.palabra_id = ?";
+    const char* sql_rels = "SELECT p2.palabra, r.valor FROM relaciones r "
+                           "JOIN palabras p2 ON r.relacionada_id = p2.id "
+                           "WHERE r.palabra_id = ?";
     if (!prepareStatement(db, sql_rels, &stmt)) return true;
     sqlite3_bind_int(stmt, 1, palabraId);
 
     while (sqlite3_step(stmt) == SQLITE_ROW) {
-        std::string relWord = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
-        double valor = sqlite3_column_double(stmt, 1);
-        outWord.addRelated(relWord, valor);
+        const char* relWordText = (const char*)sqlite3_column_text(stmt, 0);
+        if (relWordText) {   // evitar NULL
+            std::string relWord(relWordText);
+            double valor = sqlite3_column_double(stmt, 1);
+            outWord.addRelated(relWord, valor);
+        }
     }
     sqlite3_finalize(stmt);
     return true;

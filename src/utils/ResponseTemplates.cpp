@@ -99,7 +99,20 @@ void TemplateMatcher::loadDefaultTemplates() {
     registerTemplate({-1, TipoPatron::SENTENCIAS, {}, "¿Podrías explicar {articulo} {objeto}?", 6, {"explica", "por qué"}});
     registerTemplate({-1, TipoPatron::AFIRMACION_SIMP, {}, "Entonces {sujeto} {verbo} {objeto}", 7, {"entonces"}});
 
-    // Para cada template, extraemos slots automáticamente
+    registerTemplate({-1, TipoPatron::AFIRMACION_SIMP, {},
+                      "Entonces, {sujeto} {verbo} {objeto}.", 8, {"entonces", "por lo tanto"}});
+    registerTemplate({-1, TipoPatron::PREGUNTA_SIMP, {},
+                      "¿Estás seguro de que {sujeto} {verbo} {objeto}?", 9, {"seguro", "duda"}});
+    registerTemplate({-1, TipoPatron::PREGUNTA_COMP, {},
+                      "¿Podrías explicar por qué {sujeto} {verbo} {objeto}?", 7, {"explica", "por qué"}});
+    registerTemplate({-1, TipoPatron::NEGACION_SIMP, {},
+                      "No creo que {sujeto} {verbo} {objeto}.", 8, {"no", "nunca"}});
+    registerTemplate({-1, TipoPatron::SENTENCIAS, {},
+                      "Me interesa saber más acerca de {objeto}.", 5, {"saber", "curioso"}});
+    registerTemplate({-1, TipoPatron::SENTENCIAS, {},
+                      "¿Puedes contarme algo más sobre {sujeto}?", 6, {"contar", "más"}});
+
+    // Re-extraer slots para todas
     for (auto& tmpl : templates_) {
         tmpl.slots = ResponseTemplate::extractSlots(tmpl.templateStr);
     }

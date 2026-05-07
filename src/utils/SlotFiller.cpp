@@ -26,40 +26,6 @@ TipoPalabra SlotFiller::inferTypeFromSlotName(const std::string& slotName) {
     return TipoPalabra::INDEFINIDO;
 }
 
-std::string SlotFiller::predictForSlot(const std::string& slotName,
-                                       TipoPalabra expectedType,
-                                       const std::vector<TipoPalabra>& /*prevTagContext*/,
-                                       const std::vector<std::string>& prevWordContext) {
-    // Obtener la palabra actual (última del contexto)
-    std::string currentWord = prevWordContext.empty() ? "" : prevWordContext.back();
-    std::vector<std::string> previous = prevWordContext;
-    if (!currentWord.empty() && !previous.empty() && previous.back() == currentWord)
-        previous.pop_back();
-
-    std::vector<std::pair<WordPattern, double>> outcomes;
-    if (!ctxCorr.queryNext(currentWord, previous, outcomes))
-        return "";
-
-    // Filtrar por tipo esperado usando WordRepository estático
-    for (const auto& outcome : outcomes) {
-        for (const auto& wc : outcome.first) {
-            Word w;
-            if (WordRepository::load(wc.first, w) && w.getTipo() == expectedType) {
-                return wc.first;
-            }
-        }
-    }
-    // Si no se encuentra ninguna del tipo esperado, devolver la más probable
-    return outcomes.empty() ? "" : outcomes[0].first.begin()->first;
-}
-
-std::string SlotFiller::predictForSlot(const std::string& slotName,
-                                       const std::vector<TipoPalabra>& prevTagContext,
-                                       const std::vector<std::string>& prevWordContext) {
-    TipoPalabra expected = inferTypeFromSlotName(slotName);
-    return predictForSlot(slotName, expected, prevTagContext, prevWordContext);
-}
-
 std::unordered_map<std::string, std::string> SlotFiller::fillSlots(
     const std::vector<std::string>& slots,
     const std::unordered_map<std::string, TipoPalabra>& slotTypes,
@@ -85,4 +51,68 @@ std::unordered_map<std::string, std::string> SlotFiller::fillSlots(
         }
     }
     return result;
+}
+
+void SlotFiller::setPremiseContext(const std::string& subj, const std::string& verb, const std::string& obj) {
+    premiseSubject_ = subj;
+    premiseVerb_ = verb;
+    premiseObject_ = obj;
+}
+
+void SlotFiller::clearPremiseContext() {
+    premiseSubject_.clear();
+    premiseVerb_.clear();
+    premiseObject_.clear();
+}
+
+// Modificar predictForSlot para que primero intente con los valores de la premisa
+std::string SlotFiller::predictForSlot(const std::string& slotName,
+                                       TipoPalabra expectedType,
+                                       const std::vector<TipoPalabra>& prevTagContext,
+                                       const std::vector<std::string>& prevWordContext) {
+    // Prioridad 1: si el slot coincide con sujeto/verbo/objeto de la premisa
+    if (slotName == "sujeto" && !premiseSubject_.empty()) {
+        Word w;
+        if (WordRepository::load(premiseSubject_, w) && w.getTipo() == expectedType)
+            return premiseSubject_;
+    }
+    if (slotName == "verbo" && !premiseVerb_.empty()) {
+        Word w;
+        if (WordRepository::load(premiseVerb_, w) && w.getTipo() == expectedType)
+            return premiseVerb_;
+    }
+    if (slotName == "objeto" && !premiseObject_.empty()) {
+        Word w;
+        if (WordRepository::load(premiseObject_, w) && w.getTipo() == expectedType)
+            return premiseObject_;
+    }
+
+    // Prioridad 2: usar correlador contextual para predecir
+    std::vector<std::pair<WordPattern, double>> outcomes;
+    // Usamos un contexto vacío (o podríamos pasar prevWordContext)
+    if (ctxCorr.queryNext(prevWordContext.back(), prevWordContext, outcomes)) {
+        for (const auto& outcome : outcomes) {
+            for (const auto& wc : outcome.first) {
+                Word w;
+                if (WordRepository::load(wc.first, w) && w.getTipo() == expectedType) {
+                    return wc.first;
+                }else{
+                    if(wc.second > 0.5f)return wc.first;
+                }
+            }
+        }
+    }
+
+    // Prioridad 3: si no hay predicción, devolver una palabra genérica del tipo esperado
+    if (expectedType == TipoPalabra::SUST) return "cosa";
+    if (expectedType == TipoPalabra::VERB) return "hacer";
+    if (expectedType == TipoPalabra::ADJT) return "bueno";
+    return "";
+}
+
+std::string SlotFiller::predictForSlot(const std::string& slotName,
+                                       const std::vector<TipoPalabra>& prevTagContext,
+                                       const std::vector<std::string>& prevWordContext) {
+    TipoPalabra expected = inferTypeFromSlotName(slotName);
+    return predictForSlot(slotName, expected, prevTagContext, prevWordContext);
 }

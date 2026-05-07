@@ -6,13 +6,14 @@
     Año: 2026
 ==============================================================================*/
 
+// ===== Dialogue.cpp (versión modificada) =====
+
 #include "Dialogue.hpp"
 #include "../dialogue/PatternCorrelator.hpp"
 #include "../dialogue/ContextualCorrelator.hpp"
 #include "../utils/SlotFiller.hpp"
 #include "../utils/ResponseTemplates.hpp"
 #include "../db/WordRepository.hpp"
-#include "../nlp/Classifier.hpp"
 #include "../nlp/Tokenizer.hpp"
 #include "../core/Command.hpp"
 #include <algorithm>
@@ -33,11 +34,6 @@ static const bool s_randInit = []() -> bool {
     return true;
 }();
 
-// ----------------------------------------------------------------------------
-// Funciones auxiliares privadas
-// ----------------------------------------------------------------------------
-namespace {
-
 // Estructura de premisa analizada
 struct ParsedPremise {
     std::string subject = "";
@@ -46,6 +42,11 @@ struct ParsedPremise {
     std::vector<std::string> keywords;
     TipoPatron patternType = TipoPatron::SENTENCIAS;
 };
+
+// ----------------------------------------------------------------------------
+// Funciones auxiliares privadas
+// ----------------------------------------------------------------------------
+namespace {
 
 // Extracción mejorada de sujeto, verbo, objeto
 ParsedPremise parsePremise(const Sentence& premise) {
@@ -161,15 +162,21 @@ std::string applyInferenceRules(const ParsedPremise& parsed,
 }
 
 // Generación a partir de plantillas sofisticadas
-std::string generateFromTemplate(const Sentence& originalSentence,
-                                 const ParsedPremise& parsed,
-                                 DialogueContext* ctx,
-                                 TipoPatron targetPattern,
-                                 float creativity) {
+static std::string generateFromTemplate(const Sentence& originalSentence,
+                                        const ParsedPremise& parsed,
+                                        DialogueContext* ctx,
+                                        TipoPatron targetPattern,
+                                        float creativity) {
     if (!ctx || !ctx->templateMatcher || !ctx->slotFiller) return "";
 
+    // Inyectar el contexto semántico de la premisa
+    ctx->slotFiller->setPremiseContext(parsed.subject, parsed.verb, parsed.object);
+
     const ResponseTemplate* tmpl = ctx->templateMatcher->matchTemplate(targetPattern, parsed.keywords);
-    if (!tmpl) return "";
+    if (!tmpl) {
+        ctx->slotFiller->clearPremiseContext();
+        return "";
+    }
 
     std::vector<TipoPalabra> tagContext;
     std::vector<std::string> wordContext;
@@ -180,18 +187,11 @@ std::string generateFromTemplate(const Sentence& originalSentence,
 
     std::unordered_map<std::string, std::string> slotValues;
     for (const auto& slot : tmpl->slots) {
-        if (slot == "sujeto" && !parsed.subject.empty()) {
-            slotValues[slot] = parsed.subject;
-        } else if (slot == "verbo" && !parsed.verb.empty()) {
-            slotValues[slot] = parsed.verb;
-        } else if (slot == "objeto" && !parsed.object.empty()) {
-            slotValues[slot] = parsed.object;
-        } else {
-            std::string predicted = ctx->slotFiller->predictForSlot(slot, tagContext, wordContext);
-            slotValues[slot] = predicted.empty() ? "" : predicted;
-        }
+        std::string predicted = ctx->slotFiller->predictForSlot(slot, tagContext, wordContext);
+        slotValues[slot] = predicted.empty() ? "" : predicted;
     }
 
+    ctx->slotFiller->clearPremiseContext();
     return ctx->templateMatcher->fillTemplate(*tmpl, slotValues);
 }
 
@@ -303,62 +303,164 @@ void DialogueHistory::updateThreshold() {
     for (const auto& d : history_) sum += d.creativity;
     thresholdCreativity_ = sum / static_cast<float>(history_.size());
 }
+// ----------------------------------------------------------------------------
+// Aplicar creatividad léxica y sintáctica avanzada
+// ----------------------------------------------------------------------------
+static void advancedCreativeTransform(std::string& text, float creativity,
+                                      const ParsedPremise& premiseInfo) {
+    if (creativity < 0.2f) return;
+
+    // 1. Añadir muletilla al inicio si no existe y creatividad alta
+    if (creativity > 0.7f && text.find("quizás") == std::string::npos &&
+        text.find("tal vez") == std::string::npos && text.find("¿") != 0) {
+        if (rand() % 100 < 40) {
+            text = "Quizás " + text;
+        }
+    }
+
+    // 2. Reemplazar palabras por sinónimos (usando WordRepository)
+    if (creativity > 0.4f) {
+        std::vector<std::string> words;
+        std::istringstream iss(text);
+        std::string w;
+        while (iss >> w) words.push_back(w);
+
+        for (auto& w : words) {
+            Word wordObj;
+            if (WordRepository::load(w, wordObj)) {
+                const auto& rels = wordObj.getRelated();
+                if (!rels.empty() && (rand() % 100) < static_cast<int>(creativity * 40)) {
+                    // Elegir palabra relacionada con mayor peso aleatorio
+                    int idx = rand() % rels.size();
+                    w = rels[idx].first;
+                    break;  // un solo cambio por hipótesis
+                }
+            }
+        }
+
+        std::string rebuilt;
+        for (const auto& word : words) {
+            if (!rebuilt.empty()) rebuilt += " ";
+            rebuilt += word;
+        }
+        text = rebuilt;
+    }
+
+    // 3. Cambiar signos de puntuación: si es afirmación y creatividad alta, convertir a pregunta
+    if (creativity > 0.8f && text.find('?') == std::string::npos &&
+        text.find("no") == std::string::npos && text.back() != '?') {
+        text = "¿" + text + "?";
+    } else if (text.back() != '.' && text.back() != '?' && text.back() != '!') {
+        text += ".";
+    }
+
+    // 4. Capitalizar primera letra
+    if (!text.empty()) {
+        text[0] = std::toupper(text[0]);
+    }
+}
 
 // ----------------------------------------------------------------------------
-// generateHypothesis
+// Construir Sentence desde texto con tipos gramaticales
+// ----------------------------------------------------------------------------
+Sentence buildSentenceFromText(const std::string& text) {
+    auto tokens = tokenize(text);
+    std::vector<Word> words;
+    for (const auto& tok : tokens) {
+        Word w(tok.text);
+        WordRepository::load(tok.text, w);  // carga tipo, etc. si existe
+        words.push_back(w);
+    }
+    return Sentence(words);
+}
+
+// ----------------------------------------------------------------------------
+// Respuesta por defecto racional
+// ----------------------------------------------------------------------------
+std::string fallbackHypothesis(const ParsedPremise& parsed, float creativity) {
+    if (!parsed.verb.empty() && !parsed.subject.empty()) {
+        std::string base = "Entiendo que " + parsed.subject + " " + parsed.verb;
+        if (!parsed.object.empty()) base += " " + parsed.object;
+        if (creativity > 0.5f) {
+            base = "¿" + base + "?";
+        } else {
+            base += ".";
+        }
+        return base;
+    } else if (!parsed.verb.empty()) {
+        return "¿" + parsed.verb + "?";
+    } else {
+        return "No he comprendido la premisa. ¿Podrías reformularla?";
+    }
+}
+
+// ----------------------------------------------------------------------------
+// FUNCIÓN PRINCIPAL generateHypothesis
 // ----------------------------------------------------------------------------
 Sentence generateHypothesis(const Sentence& premise,
                             DialogueContext& ctx,
                             Pattern* pattern,
                             const std::string& keyword,
                             float creativity) {
-    // ---- Análisis de la premisa ----
+    // 1. Analizar la premisa
     ParsedPremise parsed = parsePremise(premise);
 
+    // 2. Determinar tipo de patrón objetivo
     TipoPatron targetType = (pattern) ? pattern->type : parsed.patternType;
-    if (targetType == TipoPatron::SENTENCIAS && creativity > 0.6f) {
-        targetType = (rand() % 2 == 0) ? TipoPatron::PREGUNTA_SIMP : TipoPatron::NEGACION_SIMP;
+    if (creativity > 0.6f) {
+        // Transformar aleatoriamente el tipo para mayor variedad
+        int r = rand() % 3;
+        if (r == 0 && targetType != TipoPatron::PREGUNTA_SIMP)
+            targetType = TipoPatron::PREGUNTA_SIMP;
+        else if (r == 1 && targetType != TipoPatron::NEGACION_SIMP)
+            targetType = TipoPatron::NEGACION_SIMP;
+        // else mantener
     }
 
     std::string generatedText;
 
-    // 1. Reglas de inferencia
+    // 3. INTENTO 1: Reglas de inferencia (conocimiento fuerte)
     if (!ctx.inferenceRules.empty()) {
         generatedText = applyInferenceRules(parsed, creativity, ctx.inferenceRules);
-    }
-
-    // 2. Plantillas contextuales
-    if (generatedText.empty() && ctx.templateMatcher && ctx.slotFiller) {
-        generatedText = generateFromTemplate(premise, parsed, &ctx, targetType, creativity);
-    }
-
-    // 3. Correlación contextual
-    if (!generatedText.empty() && ctx.ctxCorr) {
-        generatedText = generateContinuation(premise, *ctx.ctxCorr, creativity);
-    }
-
-    // 4. Último recurso: convertir en pregunta o plantilla genérica
-    if (generatedText.empty()) {
-        if (!premise.getBlocks().empty()) {
-            // Mejor que "¿El?" : usamos la frase completa o parte de ella
-            generatedText = "¿" + premise.toString() + "?";
-        } else {
-            generatedText = "No entiendo la premisa. ¿Podrías reformular?";
+        // Si la regla da una pregunta o afirmación con alta confianza, la aceptamos
+        if (!generatedText.empty()) {
+            advancedCreativeTransform(generatedText, creativity, parsed);
+            return buildSentenceFromText(generatedText);
         }
     }
 
-    // ---- Aplicar sesgo de creatividad ----
-    applyCreativity(generatedText, creativity);
-
-    // ---- Construir la sentencia final con clasificación morfológica ----
-    auto tokens = tokenize(generatedText);
-    std::vector<Word> words;
-    for (const auto& tok : tokens) {
-        Word w(tok.text);
-        WordRepository::load(tok.text, w);
-        words.push_back(w);
+    // 4. INTENTO 2: Plantillas semánticas (con SlotFiller mejorado)
+    if (ctx.templateMatcher && ctx.slotFiller) {
+        generatedText = generateFromTemplate(premise, parsed, &ctx, targetType, creativity);
+        if (!generatedText.empty()) {
+            advancedCreativeTransform(generatedText, creativity, parsed);
+            return buildSentenceFromText(generatedText);
+        }
     }
-    return Sentence(words);
+
+    // 5. INTENTO 3: Correlación contextual (generar continuación a partir de semilla)
+    if (ctx.ctxCorr && creativity > 0.4f) {
+        // Construir una semilla inicial: puede ser "Entonces", "Quizás", o parte de la premisa
+        std::string seed;
+        if (!parsed.subject.empty() && !parsed.verb.empty()) {
+            seed = parsed.subject + " " + parsed.verb;
+        } else {
+            seed = premise.toString();
+        }
+        // Limitar longitud de semilla
+        if (seed.length() > 20) seed = seed.substr(0, 20);
+        // Generar continuación
+        generatedText = generateContinuation(buildSentenceFromText(seed), *ctx.ctxCorr, creativity, 6);
+        if (!generatedText.empty()) {
+            advancedCreativeTransform(generatedText, creativity, parsed);
+            return buildSentenceFromText(generatedText);
+        }
+    }
+
+    // 6. ÚLTIMO RECURSO: respuesta por defecto
+    generatedText = fallbackHypothesis(parsed, creativity);
+    advancedCreativeTransform(generatedText, creativity, parsed);
+    return buildSentenceFromText(generatedText);
 }
 
 // ----------------------------------------------------------------------------

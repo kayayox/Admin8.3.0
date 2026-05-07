@@ -51,6 +51,13 @@ struct DialogueContext {
     DialogueContext() = default;
 };
 
+struct ParsedPremise;
+
+// Funciones auxiliares públicas para generación
+std::string applyCreativityToText(const std::string& text, float creativity);
+std::string fallbackHypothesis(const ParsedPremise& parsed, float creativity);
+Sentence buildSentenceFromText(const std::string& text);
+
 // ============================================================================
 // Historial de diálogos
 // ============================================================================
@@ -75,7 +82,7 @@ private:
 };
 
 // ============================================================================
-// Generación de hipótesis (contexto explícito)
+// Generación de hipótesis
 // ============================================================================
 Sentence generateHypothesis(const Sentence& premise,
                             DialogueContext& ctx,
@@ -84,12 +91,12 @@ Sentence generateHypothesis(const Sentence& premise,
                             float creativity = 0.5f);
 
 // ============================================================================
-// Función auxiliar pública (para depuración / estadísticas)
+// Función auxiliar pública
 // ============================================================================
 float computeCreativity(const Sentence& premise, const Sentence& hypothesis,
                         const Pattern& pattern);
 
-// Carga reglas de inferencia por defecto (puede ser llamada por el usuario)
+// Carga reglas de inferencia por defecto
 void loadDefaultInferenceRules(DialogueContext& ctx);
 
 #endif // ADMIN821_DIALOGUE_HPP

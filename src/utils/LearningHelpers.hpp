@@ -12,6 +12,17 @@
 #include "../dialogue/PatternCorrelator.hpp"
 #include <string>
 
+// ============================================================================
+// Funciones públicas auxiliares
+// ============================================================================
+
+#include "../core/Word.hpp"
+
+
+// Vector "Word" no clasificado ni cargado de db inicializados por defecto
+bool createWordVector(std::vector<Word> &words, const std::string &input);
+std::vector<Word> createWordVector(const std::string &input);
+
 // Aprende usando contexto de hasta dos palabras anteriores
 void learnContextual(ContextualCorrelator& ctx, const std::string& text);
 

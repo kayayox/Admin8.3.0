@@ -44,6 +44,9 @@
 #include <sstream>
 #include <iostream>
 #include <algorithm>
+#include <cstdlib>
+#include <ctime>
+
 
 // ============================================================================
 // Implementación interna (Pimpl)
@@ -71,6 +74,10 @@ public:
     std::string semanticDbPath;
     std::string patternDbPath;
     std::string temporalDbPath;
+
+    // Última premisa y respuesta generada (para feedback)
+    std::string lastPremiseText;
+    std::string lastResponseText;
 
     // ------------------------------------------------------------------------
     // Inicialización
@@ -163,23 +170,8 @@ public:
     std::vector<WordInfo> processSentence(const std::string& sentence) {
         if (!initialized || sentence.empty()) return {};
 
-        // 1. Tokenizar
-        auto tokens = tokenize(sentence);
-        if (tokens.empty()) return {};
-
-        // 2. Convertir a Word (sin clasificar aún)
         std::vector<Word> words;
-        for (const auto& tok : tokens) {
-            if (tok.type == TokenType::WORD) {
-                Word w(tok.text);
-                words.push_back(w);
-            } else {
-                Word w(tok.text);
-                w.setTipo((tok.type == TokenType::DATE) ? TipoPalabra::DATE : TipoPalabra::NUM);
-                w.setConfianza(0.95f);
-                words.push_back(w);
-            }
-        }
+        if(!createWordVector(words, sentence)) return {};
 
         // 3. Clasificar todas las palabras
         classifier.classifySentence(words);
@@ -198,8 +190,11 @@ public:
         lastProcessedSentence = sent;
         lastProcessedSentenceText = sentence;
 
+        std::vector<std::string> wordStrings;
+        for (const auto& w : words) wordStrings.push_back(w.getPalabra());
+
         for (auto& w : words) {
-            w.learnRelationsFromCorrelator(*dialogueContext.patternCorr);
+            w.learnRelationsFromCorrelator(*dialogueContext.patternCorr, wordStrings);
             WordRepository::save(w);
         }
 
@@ -287,25 +282,71 @@ public:
     std::string generateResponse(const std::string& premise) {
         if (!initialized || premise.empty()) return "";
 
-        auto tokens = tokenize(premise);
-        std::vector<Word> words;
-        for (const auto& tok : tokens) {
-            if (tok.type == TokenType::WORD) {
-                words.emplace_back(tok.text);
-            } else {
-                Word w(tok.text);
-                w.setTipo((tok.type == TokenType::DATE) ? TipoPalabra::DATE : TipoPalabra::NUM);
-                w.setConfianza(0.95f);
-                words.push_back(w);
-            }
-        }
+        // Tokenizar y clasificar la premisa
+        std::vector<Word> words = createWordVector(premise);
+        if(words.empty()) return "";
         classifier.classifySentence(words);
         Sentence premiseSent(words);
+
+        // Guardar la premisa en BD (para poder referenciarla en el diálogo)
+        SentenceRepository::save(premiseSent);
+
         Pattern p;
         p.sequence = premiseSent.getTypeSequence();
         p.type = classifySentencePattern(p.sequence);
-        Sentence hypothesis = generateHypothesis(premiseSent, dialogueContext, &p, "");
-        return hypothesis.toString();
+
+        // Usar el historial para ajustar la creatividad
+        DialogueHistory history = DialogueRepository::loadHistory();
+        float creativity = history.getThresholdCreativity();
+
+        // Inyectar algo de aleatoriedad para evitar monotonía
+        static bool srandInit = false;
+        if (!srandInit) {
+            std::srand(static_cast<unsigned>(std::time(nullptr)));
+            srandInit = true;
+        }
+        float randomFactor = (std::rand() % 100) / 100.0f * 0.1f;  // entre 0 y 0.1
+        creativity = std::min(0.95f, creativity + randomFactor - 0.05f);
+
+        Sentence hypothesis = generateHypothesis(premiseSent, dialogueContext, &p,
+                                                  words.back().getPalabra(), creativity);
+
+        std::string responseText = hypothesis.toString();
+
+        // Guardar el diálogo (premisa + hipótesis) en la BD
+        SentenceRepository::save(hypothesis);   // almacenar la hipótesis como oración
+        DialogueRepository::saveDialogue(premiseSent, hypothesis, p, creativity);
+
+        // Guardar última interacción para posible feedback
+        lastPremiseText = premise;
+        lastResponseText = responseText;
+
+        return responseText;
+    }
+
+    // Proporcionar feedback sobre el diálogo
+    void provideDialogueFeedback(bool positive) {
+        if (!initialized || lastPremiseText.empty() || lastResponseText.empty()) return;
+
+        Sentence premSent = buildSentenceFromText(lastPremiseText);
+        Sentence respSent = buildSentenceFromText(lastResponseText);
+
+        // Si no existen en BD, guardarlas (por si acaso)
+        if (premSent.getId() <= 0) SentenceRepository::save(premSent);
+        if (respSent.getId() <= 0) SentenceRepository::save(respSent);
+
+        Pattern p = patternFromSequence(premSent.getTypeSequence());
+        float creativity = computeCreativity(premSent, respSent, p);
+        DialogueRepository::saveDialogue(premSent, respSent, p, creativity);
+
+        // Registrar feedback a nivel de palabra (todas como correctas si positive, sino omitimos)
+        if (positive) {
+            for (const auto& block : respSent.getBlocks()) {
+                DialogueRepository::registerFeedback(block.text, block.type, block.type, true);
+            }
+        }
+        // Si el feedback es negativo podríamos hacer algo más sofisticado:
+        //   - penalizar palabras, etc. Por ahora no se implementa.
     }
 
     // ------------------------------------------------------------------------
@@ -345,10 +386,15 @@ public:
         contextWords.clear();
         lastProcessedSentenceText.clear();
         lastProcessedSentence = Sentence();
+        lastPremiseText.clear();
+        lastResponseText.clear();
     }
 
-    WordInfo getWordInfo(const std::string& word) {
+    WordInfo getWordInfo(std::string& word) {
         if (!initialized) return {};
+        while (!word.empty() && ispunct(static_cast<unsigned char>(word.back()))) {
+            word.pop_back();
+        }
         Word w(word);
         WordRepository::load(word, w);
         return wordToInfo(w);
@@ -415,6 +461,10 @@ void NLPEngine::resetContext() {
     pImpl->resetContext();
 }
 
-WordInfo NLPEngine::getWordInfo(const std::string& word) {
+WordInfo NLPEngine::getWordInfo(std::string& word) {
     return pImpl->getWordInfo(word);
+}
+
+void NLPEngine::provideDialogueFeedback(bool positive) {
+    pImpl->provideDialogueFeedback(positive);
 }

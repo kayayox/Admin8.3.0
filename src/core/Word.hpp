@@ -46,7 +46,8 @@ public:
     void setConfianza(float conf);
 
     // Aprende palabras relacionadas usando un correlador entrenado con pares (palabra, palabra_relacionada)
-    void learnRelationsFromCorrelator(PatternCorrelator& correlator, double minConfidence = 0.3);
+    void learnRelationsFromCorrelator(PatternCorrelator& correlator,
+            const std::vector<std::string>& words = {{"__NO_CONTEXT__"}}, double minConfidence = 0.3);
 
     // Genera un significado estructurado basado en los atributos gramaticales actuales
     void generateStructuredMeaning();

@@ -9,6 +9,7 @@
 #include "src/nlp/Tokenizer.hpp"          // splitIntoSentences
 #include "src/core/Command.hpp"            // detectCommandFromPhrase
 #include "src/utils/StringConversions.hpp" // tipoToString (opcional)
+#include "src/db/SentenceRepository.hpp"
 
 #include <iostream>
 #include <fstream>
@@ -221,9 +222,11 @@ int main() {
                             std::getline(std::cin, predicted);
                         }
                     } else {
-                        if (!askYesNo("¿Es correcta la predicción '" + predicted + "'?")) {
-                            std::cout << "Ingrese la palabra correcta: ";
-                            std::getline(std::cin, predicted);
+                        if(preds.size() != 1) {
+                            if (!askYesNo("¿Es correcta la predicción '" + predicted + "'?")) {
+                                std::cout << "Ingrese la palabra correcta: ";
+                                std::getline(std::cin, predicted);
+                            }
                         }
                     }
 
@@ -235,7 +238,7 @@ int main() {
                     WordInfo info = engine.getWordInfo(predicted);
                     printWordInfo(info);
                     // Opcional: corrección de clasificación
-                    if (askYesNo("¿Corregir la clasificación de esta palabra?")) {
+                    if (info.confianza < 0.85f && askYesNo("¿Corregir la clasificación de esta palabra?")) {
                         std::cout << "Nuevo tipo: ";
                         std::string newType;
                         std::getline(std::cin, newType);

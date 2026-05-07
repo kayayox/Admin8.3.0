@@ -77,11 +77,12 @@ public:
     void correctWord(const std::string& word, const std::string& correctType);
 
     // Obtiene información actual de una palabra (sin modificar contexto).
-    WordInfo getWordInfo(const std::string& word);
+    WordInfo getWordInfo(std::string& word);
 
     // Reinicia el contexto conversacional (borra el historial de palabras recientes).
     void resetContext();
 
+    void provideDialogueFeedback(bool positive);
 private:
     class Impl;
     std::unique_ptr<Impl> pImpl;

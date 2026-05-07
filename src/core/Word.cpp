@@ -7,6 +7,7 @@
 ==============================================================================*/
 
 #include "Word.hpp"
+#include <algorithm>
 
 Word::Word(const std::string& palabra) : palabra_(palabra) {}
 
@@ -42,17 +43,26 @@ void Word::setConfianza(float conf) {
     confianza_ = conf;
 }
 
-void Word::learnRelationsFromCorrelator(PatternCorrelator& correlator, double minConfidence) {
-    // Usamos la palabra actual como clave y un patrón previo vacío (sin contexto)
-    WordPattern dummyPrev = {{"__NO_CONTEXT__", 1.0f}};
+void Word::learnRelationsFromCorrelator(PatternCorrelator& correlator,
+        const std::vector<std::string>& words, double minConfidence) {
+    // Construir patrón previo con la palabra anterior (si existe)
+    WordPattern prevPat;
+    std::string prevWord = "__NO_CONTEXT__";
+    // Buscar la palabra anterior en la lista (si la hay)
+    auto it = std::find(words.begin(), words.end(), palabra_);
+    if (it != words.end() && it != words.begin()) {
+        prevWord = *(it - 1);
+    }
+    prevPat[prevWord] = 1.0f;
+
     std::vector<std::pair<WordPattern, double>> outcomes;
-    if (correlator.query(palabra_, dummyPrev, outcomes)) {
+    if (correlator.query(palabra_, prevPat, outcomes)) {
         relacionadas_.clear();
         for (const auto& [pattern, conf] : outcomes) {
             if (conf >= minConfidence && !pattern.empty()) {
-                // Cada patrón puede contener varias palabras; las tratamos todas como relacionadas
+                // Cada patrón es un mapa de 1 sola palabra con su probabilidad
                 for (const auto& [relWord, weight] : pattern) {
-                    if (relWord != palabra_) {  // Evitar auto‑relación
+                    if (relWord != palabra_) {
                         relacionadas_.emplace_back(relWord, conf * weight);
                     }
                 }

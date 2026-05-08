@@ -12,6 +12,7 @@
 #include "../core/Sentence.hpp"
 #include "../core/Pattern.hpp"
 #include "../core/Command.hpp"
+#include "../core/Dialogue.hpp"
 
 // Database
 #include "../db/DatabaseManager.hpp"
@@ -38,6 +39,7 @@
 #include "../utils/LearningHelpers.hpp"
 #include "../utils/ResponseTemplates.hpp"
 #include "../utils/SlotFiller.hpp"
+#include "../utils/SentenceUtils.hpp"
 
 // STL
 #include <deque>
@@ -47,7 +49,7 @@
 #include <cstdlib>
 #include <ctime>
 
-
+using namespace utils;
 // ============================================================================
 // Implementación interna (Pimpl)
 // ============================================================================

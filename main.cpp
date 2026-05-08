@@ -9,13 +9,15 @@
 #include "src/nlp/Tokenizer.hpp"          // splitIntoSentences
 #include "src/core/Command.hpp"            // detectCommandFromPhrase
 #include "src/utils/StringConversions.hpp" // tipoToString (opcional)
-#include "src/db/SentenceRepository.hpp"
 
 #include <iostream>
 #include <fstream>
 #include <sstream>
 #include <limits>
 #include <cctype>
+#include <random>
+
+#define MAX_ITER 16
 
 // ============================================================================
 // Funciones auxiliares
@@ -192,8 +194,6 @@ int main() {
                 std::string input;
                 std::getline(std::cin, input);
                 std::string currentPhrase = input;
-                const int MAX_ITER = 15;
-
                 for (int iter = 1; iter <= MAX_ITER; ++iter) {
                     std::cout << "\n=== Iteración " << iter << " ===\n";
                     auto preds = engine.predictNext(currentPhrase);
@@ -257,10 +257,44 @@ int main() {
                 std::cout << "Premisa (oración de entrada): ";
                 std::string premisa;
                 std::getline(std::cin, premisa);
+                std::string currentPhrase = premisa;
                 if (!premisa.empty()) {
+                    for (int iter = 1; iter <= MAX_ITER; ++iter) {
+                        auto preds = engine.predictNext(currentPhrase);
+                        if (preds.empty()) {
+                            break;
+                        }
+
+                        std::string predicted = preds[0].word;
+                        double bestProb = preds[0].probability;
+
+                        static std::random_device rd;
+                        static std::mt19937 gen(rd());
+
+                        // Dentro del bucle:
+                        if (bestProb < 0.5 && preds.size() > 1) {
+                            std::uniform_int_distribution<size_t> dist(1, preds.size());
+                            for (size_t i = 0; i < preds.size() && i < 16; ++i) {
+                                size_t elec = dist(gen);   // ← valor aleatorio entre 1 y preds.size()
+                                if (elec >= 1 && elec <= preds.size()) {  // siempre se cumple, pero lo dejo por claridad
+                                    predicted = preds[elec - 1].word;
+                                }
+                            }
+                        }
+                                        // Aprender la secuencia correcta
+                        std::string correctedSentence = currentPhrase + " " + predicted;
+                        engine.processSentence(correctedSentence);
+                        currentPhrase += " " + predicted;
+                        std::cout << "\rGenerando Frase: " << currentPhrase << std::flush;
+                    }
+                    std::cout << "\nPremisa dada: " << premisa << "\n";
+                    std::cout << "Hipótesis generada: " << currentPhrase << "\n";
                     std::string respuesta = engine.generateResponse(premisa);
-                    std::cout << "Hipótesis generada: " << respuesta << "\n";
+                    std::cout << "Respuesta generada: " << respuesta << "\n";
                 }
+                bool buena = askYesNo("¿La última respuesta fue correcta o útil?");
+                engine.provideDialogueFeedback(buena);
+                std::cout << "Feedback registrado.\n";
                 break;
             }
             case 0:

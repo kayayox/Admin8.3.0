@@ -1,5 +1,5 @@
 /**==============================================================================
-    Admin8.2.4 - Dialogue.hpp
+    Admin8.3.0 - Dialogue.hpp
     Proposito: Estructuras para representar un diálogo (premisa, hipótesis, patrón)
                e historial de diálogos. Funciones para generar hipótesis (versión
                avanzada con contexto semántico) y calcular creatividad.
@@ -12,29 +12,16 @@
 
 #include "Sentence.hpp"
 #include "Pattern.hpp"
+#include "InferenceRule.hpp"
 #include <vector>
 #include <string>
 
-// ------------------------------------------------
 // Forward declarations
-// ------------------------------------------------
 class PatternCorrelator;
 class ContextualCorrelator;
 class ChunkCorrelator;
 class TemplateMatcher;
 class SlotFiller;
-
-// ============================================================================
-// Regla de inferencia
-// ============================================================================
-struct InferenceRule {
-    std::vector<std::string> triggerVerbs;        // formas base que activan la regla
-    std::vector<std::string> triggerNouns;        // sustantivos que activan la regla
-    std::string consequentTemplate;               // plantilla con slots {nombre}
-    std::vector<std::pair<std::string, std::string>> slotMappings;
-    float confidence;                             // [0..1]
-    bool isQuestion;                              // ¿genera pregunta?
-};
 
 // ============================================================================
 // Contexto de diálogo – agrupa todos los recursos necesarios
@@ -50,13 +37,6 @@ struct DialogueContext {
 
     DialogueContext() = default;
 };
-
-struct ParsedPremise;
-
-// Funciones auxiliares públicas para generación
-std::string applyCreativityToText(const std::string& text, float creativity);
-std::string fallbackHypothesis(const ParsedPremise& parsed, float creativity);
-Sentence buildSentenceFromText(const std::string& text);
 
 // ============================================================================
 // Historial de diálogos
@@ -82,7 +62,7 @@ private:
 };
 
 // ============================================================================
-// Generación de hipótesis
+// Generación de hipótesis (función principal)
 // ============================================================================
 Sentence generateHypothesis(const Sentence& premise,
                             DialogueContext& ctx,
@@ -90,13 +70,7 @@ Sentence generateHypothesis(const Sentence& premise,
                             const std::string& keyword = "",
                             float creativity = 0.5f);
 
-// ============================================================================
-// Función auxiliar pública
-// ============================================================================
-float computeCreativity(const Sentence& premise, const Sentence& hypothesis,
-                        const Pattern& pattern);
-
-// Carga reglas de inferencia por defecto
+// Carga reglas de inferencia por defecto (implementada en DefaultRules.cpp)
 void loadDefaultInferenceRules(DialogueContext& ctx);
 
 #endif // ADMIN821_DIALOGUE_HPP

@@ -77,6 +77,7 @@ set(SOURCES
     src/api/NLPEngine.cpp
     src/core/Command.cpp
     src/core/Dialogue.cpp
+    src/core/inferenceEngine.cpp
     src/core/Pattern.cpp
     src/core/Sentence.cpp
     src/core/Word.cpp
@@ -98,6 +99,7 @@ set(SOURCES
     src/utils/LearningHelpers.cpp
     src/utils/PatternUtils.cpp
     src/utils/ResponseTemplates.cpp
+    src/utils/SentenceUtils.cpp
     src/utils/SlotFiller.cpp
     src/utils/StringConversions.cpp
     main.cpp
